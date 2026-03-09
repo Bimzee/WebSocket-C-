@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 02 — First WebSocket Connection</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #00d2ff, #7b2ff7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 2rem;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        /* Connection Status Card */
+        .status-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .status-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ff4444;
+            transition: background 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+        }
+
+        .status-dot.connected {
+            background: #00e676;
+            box-shadow: 0 0 10px rgba(0, 230, 118, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(0, 230, 118, 0.3); }
+            50% { box-shadow: 0 0 20px rgba(0, 230, 118, 0.6); }
+        }
+
+        .status-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 1.5rem;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+
+        button:hover { transform: translateY(-2px); }
+        button:active { transform: translateY(0); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-connect {
+            background: linear-gradient(135deg, #00e676, #00b0ff);
+            color: #000;
+        }
+
+        .btn-disconnect {
+            background: linear-gradient(135deg, #ff5252, #ff1744);
+            color: #fff;
+        }
+
+        /* Message Input */
+        .message-input {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 1.5rem;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #e0e0e0;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #00d2ff;
+        }
+
+        .btn-send {
+            background: linear-gradient(135deg, #7b2ff7, #00d2ff);
+            color: #fff;
+            min-width: 100px;
+        }
+
+        /* Event Log */
+        .log-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+        }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .log-header h3 {
+            color: #00d2ff;
+        }
+
+        .btn-clear {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #888;
+            padding: 6px 16px;
+            font-size: 0.85rem;
+            flex: none;
+        }
+
+        #eventLog {
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+        }
+
+        .log-entry {
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .log-entry.open { background: rgba(0, 230, 118, 0.1); color: #00e676; }
+        .log-entry.close { background: rgba(255, 82, 82, 0.1); color: #ff5252; }
+        .log-entry.sent { background: rgba(0, 210, 255, 0.1); color: #00d2ff; }
+        .log-entry.received { background: rgba(123, 47, 247, 0.1); color: #b388ff; }
+        .log-entry.error { background: rgba(255, 23, 68, 0.1); color: #ff1744; }
+        .log-entry.info { background: rgba(255, 255, 255, 0.05); color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ Chapter 02 — First Connection</h1>
+        <p class="subtitle">Your first WebSocket connection in C#</p>
+
+        <!-- Connection Status -->
+        <div class="status-card">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span class="status-text" id="statusText">Disconnected</span>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-connect" id="btnConnect" onclick="connect()">🔌 Connect</button>
+                <button class="btn-disconnect" id="btnDisconnect" onclick="disconnect()" disabled>🔴 Disconnect</button>
+            </div>
+
+            <!-- Message Sending -->
+            <div class="message-input">
+                <input type="text" id="messageInput" placeholder="Type a message..." 
+                       onkeypress="if(event.key==='Enter') sendMessage()" disabled>
+                <button class="btn-send" id="btnSend" onclick="sendMessage()" disabled>📤 Send</button>
+            </div>
+        </div>
+
+        <!-- Event Log -->
+        <div class="log-card">
+            <div class="log-header">
+                <h3>📋 Event Log</h3>
+                <button class="btn-clear" onclick="clearLog()">Clear</button>
+            </div>
+            <div id="eventLog"></div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // WebSocket Client — Chapter 02
+        // =====================================================================
+        // This demonstrates the basic browser WebSocket API:
+        //   - new WebSocket(url)    → Create connection
+        //   - ws.onopen             → Connection established
+        //   - ws.onmessage          → Message received
+        //   - ws.onclose            → Connection closed
+        //   - ws.onerror            → Error occurred
+        //   - ws.send(data)         → Send a message
+        //   - ws.close()            → Close the connection
+        // =====================================================================
+
+        let ws = null; // Our WebSocket reference
+
+        // -----------------------------------------------------------------
+        // CONNECT: Create a new WebSocket connection
+        // -----------------------------------------------------------------
+        function connect() {
+            // Create a new WebSocket connection to our server
+            // The URL scheme is 'ws://' (or 'wss://' for secure)
+            ws = new WebSocket('ws://localhost:5000/ws');
+
+            // ---------------------------------------------------------
+            // EVENT: onopen — Fires when the connection is established
+            // ---------------------------------------------------------
+            ws.onopen = function(event) {
+                log('🟢 Connected to server!', 'open');
+                updateStatus(true);
+            };
+
+            // ---------------------------------------------------------
+            // EVENT: onmessage — Fires when a message is received
+            // ---------------------------------------------------------
+            ws.onmessage = function(event) {
+                log(`📩 ${event.data}`, 'received');
+            };
+
+            // ---------------------------------------------------------
+            // EVENT: onclose — Fires when the connection is closed
+            // ---------------------------------------------------------
+            ws.onclose = function(event) {
+                log(`🔴 Disconnected (Code: ${event.code}, Reason: ${event.reason || 'N/A'})`, 'close');
+                updateStatus(false);
+                ws = null;
+            };
+
+            // ---------------------------------------------------------
+            // EVENT: onerror — Fires when an error occurs
+            // ---------------------------------------------------------
+            ws.onerror = function(event) {
+                log('❌ WebSocket error occurred!', 'error');
+            };
+
+            log('📡 Connecting to ws://localhost:5000/ws ...', 'info');
+        }
+
+        // -----------------------------------------------------------------
+        // SEND: Send a message to the server
+        // -----------------------------------------------------------------
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(message);
+                log(`📤 Sent: ${message}`, 'sent');
+                input.value = '';
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // DISCONNECT: Close the WebSocket connection gracefully
+        // -----------------------------------------------------------------
+        function disconnect() {
+            if (ws) {
+                ws.close(1000, 'User disconnected'); // 1000 = Normal closure
+                log('🔌 Closing connection...', 'info');
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // UI Helpers
+        // -----------------------------------------------------------------
+        function updateStatus(connected) {
+            document.getElementById('statusDot').className = 'status-dot' + (connected ? ' connected' : '');
+            document.getElementById('statusText').textContent = connected ? 'Connected' : 'Disconnected';
+            document.getElementById('btnConnect').disabled = connected;
+            document.getElementById('btnDisconnect').disabled = !connected;
+            document.getElementById('messageInput').disabled = !connected;
+            document.getElementById('btnSend').disabled = !connected;
+        }
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('eventLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `[${time}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('eventLog').innerHTML = '';
+        }
+
+        // Initial log entry
+        log('👋 Welcome! Click "Connect" to establish a WebSocket connection.', 'info');
+    </script>
+</body>
+</html>

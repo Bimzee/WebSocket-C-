@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 03 — Messaging</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            padding: 1.5rem 2rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            background: linear-gradient(90deg, #00d2ff, #7b2ff7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-top: 0.3rem;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 0.8rem;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff4444;
+        }
+
+        .dot.on {
+            background: #00e676;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 5px rgba(0, 230, 118, 0.3)
+            }
+
+            50% {
+                box-shadow: 0 0 15px rgba(0, 230, 118, 0.6)
+            }
+        }
+
+        .client-id {
+            color: #7b2ff7;
+            font-weight: 600;
+        }
+
+        /* Main layout */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        /* Message types selector */
+        .type-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .type-btn {
+            padding: 8px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            background: transparent;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+
+        .type-btn:hover {
+            border-color: #00d2ff;
+            color: #00d2ff;
+        }
+
+        .type-btn.active {
+            background: rgba(0, 210, 255, 0.2);
+            border-color: #00d2ff;
+            color: #00d2ff;
+        }
+
+        /* Messages area */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            min-height: 300px;
+            max-height: 500px;
+        }
+
+        .msg {
+            margin-bottom: 1rem;
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            animation: slideIn 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        .msg.sent {
+            background: rgba(0, 210, 255, 0.15);
+            border-left: 3px solid #00d2ff;
+            margin-left: 2rem;
+        }
+
+        .msg.received {
+            background: rgba(123, 47, 247, 0.15);
+            border-left: 3px solid #7b2ff7;
+            margin-right: 2rem;
+        }
+
+        .msg.system {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid #666;
+            text-align: center;
+            font-style: italic;
+            color: #888;
+        }
+
+        .msg.error {
+            background: rgba(255, 23, 68, 0.15);
+            border-left: 3px solid #ff1744;
+        }
+
+        .msg-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .msg-type {
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            font-size: 0.7rem;
+        }
+
+        .msg-body {
+            line-height: 1.5;
+        }
+
+        .json-view {
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 6px;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        /* Input area */
+        .input-area {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        .input-area input:focus {
+            border-color: #00d2ff;
+        }
+
+        .btn-send {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #7b2ff7, #00d2ff);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-send:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-send:disabled {
+            opacity: 0.5;
+        }
+
+        /* Quick actions */
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 0.8rem;
+            flex-wrap: wrap;
+        }
+
+        .quick-btn {
+            padding: 6px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #aaa;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s;
+        }
+
+        .quick-btn:hover {
+            background: rgba(0, 210, 255, 0.1);
+            color: #00d2ff;
+            border-color: #00d2ff;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>💬 Chapter 03 — Messaging</h1>
+        <p class="subtitle">JSON message protocol with typed messages</p>
+        <div class="status-bar">
+            <div class="dot" id="dot"></div>
+            <span id="statusText">Disconnected</span>
+            <span class="client-id" id="clientId"></span>
+        </div>
+    </div>
+
+    <div class="main">
+        <!-- Message Type Selector -->
+        <div class="type-selector">
+            <button class="type-btn active" data-type="chat" onclick="selectType(this)">💬 Chat</button>
+            <button class="type-btn" data-type="command" onclick="selectType(this)">⚡ Command</button>
+            <button class="type-btn" data-type="ping" onclick="selectType(this)">🏓 Ping</button>
+            <button class="type-btn" data-type="raw" onclick="selectType(this)">📝 Raw Text</button>
+        </div>
+
+        <!-- Messages -->
+        <div class="messages" id="messages"></div>
+
+        <!-- Input -->
+        <div class="input-area">
+            <input type="text" id="msgInput" placeholder="Type a chat message..."
+                onkeypress="if(event.key==='Enter')sendMsg()">
+            <button class="btn-send" id="btnSend" onclick="sendMsg()" disabled>Send</button>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <button class="quick-btn" onclick="sendQuick('chat','Hello WebSocket!')">👋 Say Hello</button>
+            <button class="quick-btn" onclick="sendQuick('command','time')">🕐 Get Time</button>
+            <button class="quick-btn" onclick="sendQuick('command','whoami')">🆔 Who Am I</button>
+            <button class="quick-btn" onclick="sendQuick('command','help')">❓ Help</button>
+            <button class="quick-btn" onclick="sendQuick('ping','')">🏓 Ping</button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentType = 'chat';
+        let myClientId = '';
+
+        // Auto-connect on page load
+        window.addEventListener('load', connect);
+
+        function connect() {
+            ws = new WebSocket('ws://localhost:5000/ws');
+            ws.onopen = () => {
+                document.getElementById('dot').classList.add('on');
+                document.getElementById('statusText').textContent = 'Connected';
+                document.getElementById('btnSend').disabled = false;
+                addMsg('system', '🟢 Connected to server');
+            };
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    // Capture our client ID from welcome message
+                    if (data.type === 'system' && data.event === 'welcome') {
+                        myClientId = data.clientId;
+                        document.getElementById('clientId').textContent = `(${myClientId})`;
+                    }
+                    addMsg('received', formatMessage(data), data.type, event.data);
+                } catch {
+                    addMsg('received', event.data);
+                }
+            };
+            ws.onclose = () => {
+                document.getElementById('dot').classList.remove('on');
+                document.getElementById('statusText').textContent = 'Disconnected';
+                document.getElementById('btnSend').disabled = true;
+                addMsg('system', '🔴 Disconnected');
+                setTimeout(connect, 3000); // Auto-reconnect
+            };
+            ws.onerror = () => addMsg('error', '❌ Connection error');
+        }
+
+        function selectType(btn) {
+            document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentType = btn.dataset.type;
+            const input = document.getElementById('msgInput');
+            const placeholders = {
+                chat: 'Type a chat message...',
+                command: 'Enter command (time, whoami, help)...',
+                ping: 'Press Send to ping',
+                raw: 'Type raw text (no JSON wrapper)...'
+            };
+            input.placeholder = placeholders[currentType];
+        }
+
+        function sendMsg() {
+            const input = document.getElementById('msgInput');
+            const text = input.value.trim();
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+            let payload;
+            switch (currentType) {
+                case 'chat':
+                    if (!text) return;
+                    payload = JSON.stringify({ type: 'chat', text });
+                    break;
+                case 'command':
+                    if (!text) return;
+                    payload = JSON.stringify({ type: 'command', command: text });
+                    break;
+                case 'ping':
+                    payload = JSON.stringify({ type: 'ping' });
+                    break;
+                case 'raw':
+                    if (!text) return;
+                    payload = text; // Send raw text, no JSON
+                    break;
+            }
+
+            ws.send(payload);
+            addMsg('sent', `${currentType === 'raw' ? text : payload}`, currentType);
+            input.value = '';
+        }
+
+        function sendQuick(type, value) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            let payload;
+            if (type === 'chat') payload = JSON.stringify({ type: 'chat', text: value });
+            else if (type === 'command') payload = JSON.stringify({ type: 'command', command: value });
+            else if (type === 'ping') payload = JSON.stringify({ type: 'ping' });
+            ws.send(payload);
+            addMsg('sent', payload, type);
+        }
+
+        function formatMessage(data) {
+            switch (data.type) {
+                case 'chat': return `${data.from}: ${data.text}`;
+                case 'echo': return `Echo: ${data.originalText}\n💡 ${data.note}`;
+                case 'command_response': return `⚡ ${data.command}: ${data.result}`;
+                case 'pong': return `🏓 Pong! Server time: ${data.serverTime}`;
+                case 'system': return `ℹ️ ${data.message}`;
+                case 'error': return `❌ ${data.message}`;
+                default: return JSON.stringify(data, null, 2);
+            }
+        }
+
+        function addMsg(cls, content, type = '', rawJson = '') {
+            const div = document.getElementById('messages');
+            const msg = document.createElement('div');
+            msg.className = `msg ${cls}`;
+
+            const time = new Date().toLocaleTimeString();
+            let html = `<div class="msg-header"><span>${time}</span>`;
+            if (type) html += `<span class="msg-type">${type}</span>`;
+            html += '</div>';
+            html += `<div class="msg-body">${content}</div>`;
+            if (rawJson && cls === 'received') {
+                try {
+                    html += `<div class="json-view">${JSON.stringify(JSON.parse(rawJson), null, 2)}</div>`;
+                } catch { }
+            }
+
+            msg.innerHTML = html;
+            div.appendChild(msg);
+            div.scrollTop = div.scrollHeight;
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Live Dashboard — Capstone Project</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0a0a1a;
+            color: #e0e0e0;
+            min-height: 100vh
+        }
+
+        /* Header */
+        .header {
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(0, 0, 0, 0.3)
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            background: linear-gradient(90deg, #00e5ff, #7c4dff, #ff6d00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent
+        }
+
+        .conn-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem
+        }
+
+        .conn-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff4444;
+            transition: background 0.3s
+        }
+
+        .conn-dot.on {
+            background: #00e676;
+            box-shadow: 0 0 10px rgba(0, 230, 118, 0.5)
+        }
+
+        /* Dashboard Grid */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            padding: 1.5rem;
+            max-width: 1200px;
+            margin: 0 auto
+        }
+
+        @media(max-width:768px) {
+            .dashboard {
+                grid-template-columns: 1fr
+            }
+        }
+
+        /* Widget */
+        .widget {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: transform 0.3s, border-color 0.3s
+        }
+
+        .widget:hover {
+            transform: translateY(-3px);
+            border-color: rgba(255, 255, 255, 0.15)
+        }
+
+        .widget-header {
+            padding: 1rem 1.2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center
+        }
+
+        .widget-header h2 {
+            font-size: 1rem;
+            font-weight: 600
+        }
+
+        .widget-header .badge {
+            font-size: 0.65rem;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px
+        }
+
+        .widget-body {
+            padding: 1.2rem
+        }
+
+        /* Crypto Widget */
+        .crypto .widget-header {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05))
+        }
+
+        .crypto .badge {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b
+        }
+
+        .crypto-grid {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 8px
+        }
+
+        .coin {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            transition: background 0.3s
+        }
+
+        .coin:hover {
+            background: rgba(255, 255, 255, 0.06)
+        }
+
+        .coin-name {
+            font-weight: 600;
+            font-size: 0.95rem
+        }
+
+        .coin-symbol {
+            color: #888;
+            font-size: 0.75rem
+        }
+
+        .coin-price {
+            font-family: 'Cascadia Code', monospace;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #f59e0b
+        }
+
+        .coin-change {
+            font-size: 0.8rem;
+            font-weight: 600
+        }
+
+        .coin-change.up {
+            color: #00e676
+        }
+
+        .coin-change.down {
+            color: #ff5252
+        }
+
+        /* Weather Widget */
+        .weather .widget-header {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05))
+        }
+
+        .weather .badge {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6
+        }
+
+        .city-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03)
+        }
+
+        .city-row:last-child {
+            border-bottom: none
+        }
+
+        .city-name {
+            font-weight: 600;
+            font-size: 0.9rem
+        }
+
+        .city-temp {
+            font-family: 'Cascadia Code', monospace;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #3b82f6
+        }
+
+        .city-detail {
+            font-size: 0.75rem;
+            color: #666
+        }
+
+        .weather-icon {
+            font-size: 1.5rem
+        }
+
+        /* Wiki Widget */
+        .wiki .widget-header {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(168, 85, 247, 0.05))
+        }
+
+        .wiki .badge {
+            background: rgba(168, 85, 247, 0.2);
+            color: #a855f7
+        }
+
+        .wiki-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            animation: fadeIn 0.5s
+        }
+
+        .wiki-item:last-child {
+            border-bottom: none
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0)
+            }
+        }
+
+        .wiki-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #a855f7
+        }
+
+        .wiki-meta {
+            font-size: 0.7rem;
+            color: #666;
+            margin-top: 2px
+        }
+
+        /* Clock Widget */
+        .clocks .widget-header {
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.15), rgba(0, 229, 255, 0.05))
+        }
+
+        .clocks .badge {
+            background: rgba(0, 229, 255, 0.2);
+            color: #00e5ff
+        }
+
+        .clock-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03)
+        }
+
+        .clock-row:last-child {
+            border-bottom: none
+        }
+
+        .clock-zone {
+            font-size: 0.85rem;
+            color: #aaa
+        }
+
+        .clock-time {
+            font-family: 'Cascadia Code', monospace;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #00e5ff
+        }
+
+        .clock-abbr {
+            font-size: 0.7rem;
+            color: #555
+        }
+
+        /* Activity Feed */
+        .feed {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.75rem;
+            color: #555;
+            padding: 0.5rem 1.2rem
+        }
+
+        .feed-entry {
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02)
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>🚀 Real-Time Live Dashboard</h1>
+        <div class="conn-status">
+            <div class="conn-dot" id="dot"></div>
+            <span id="status">Connecting...</span>
+            <span style="color:#555;font-size:0.75rem" id="lastUpdate"></span>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <!-- Crypto Widget -->
+        <div class="widget crypto">
+            <div class="widget-header">
+                <h2>💰 Cryptocurrency</h2>
+                <span class="badge">LIVE · CoinGecko API</span>
+            </div>
+            <div class="widget-body">
+                <div class="crypto-grid" id="cryptoGrid">
+                    <div style="text-align:center;color:#555;padding:2rem">Waiting for data...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Weather Widget -->
+        <div class="widget weather">
+            <div class="widget-header">
+                <h2>🌤️ World Weather</h2>
+                <span class="badge">LIVE · Open-Meteo API</span>
+            </div>
+            <div class="widget-body" id="weatherBody">
+                <div style="text-align:center;color:#555;padding:2rem">Waiting for data...</div>
+            </div>
+        </div>
+
+        <!-- Wikipedia Widget -->
+        <div class="widget wiki">
+            <div class="widget-header">
+                <h2>📚 Wikipedia Live Edits</h2>
+                <span class="badge">LIVE · Wikipedia API</span>
+            </div>
+            <div class="widget-body" id="wikiBody">
+                <div style="text-align:center;color:#555;padding:2rem">Waiting for data...</div>
+            </div>
+        </div>
+
+        <!-- World Clocks Widget -->
+        <div class="widget clocks">
+            <div class="widget-header">
+                <h2>🕐 World Clocks</h2>
+                <span class="badge">LIVE · WorldTime API</span>
+            </div>
+            <div class="widget-body" id="clockBody">
+                <div style="text-align:center;color:#555;padding:2rem">Waiting for data...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Activity Feed -->
+    <div class="feed" id="feed"></div>
+
+    <script>
+        let ws;
+        const prevPrices = {};
+
+        window.addEventListener('load', connect);
+
+        function connect() {
+            ws = new WebSocket('ws://localhost:5000/ws');
+            ws.onopen = () => {
+                document.getElementById('dot').classList.add('on');
+                document.getElementById('status').textContent = 'Connected';
+                addFeed('🟢 Connected to Live Dashboard');
+            };
+            ws.onmessage = (e) => {
+                const msg = JSON.parse(e.data);
+                document.getElementById('lastUpdate').textContent = `Last: ${new Date().toLocaleTimeString()}`;
+                handleMessage(msg);
+            };
+            ws.onclose = () => {
+                document.getElementById('dot').classList.remove('on');
+                document.getElementById('status').textContent = 'Reconnecting...';
+                addFeed('🔴 Disconnected — reconnecting...');
+                setTimeout(connect, 3000);
+            };
+        }
+
+        function handleMessage(msg) {
+            switch (msg.type) {
+                case 'crypto': renderCrypto(msg.data); break;
+                case 'weather': renderWeather(msg.data); break;
+                case 'wiki': renderWiki(msg.data); break;
+                case 'worldclock': renderClocks(msg.data); break;
+                case 'system': addFeed(`ℹ️ ${msg.message}`); break;
+            }
+        }
+
+        // ===================== CRYPTO =====================
+        function renderCrypto(data) {
+            const coins = [
+                { id: 'bitcoin', symbol: 'BTC', icon: '₿' },
+                { id: 'ethereum', symbol: 'ETH', icon: 'Ξ' },
+                { id: 'dogecoin', symbol: 'DOGE', icon: '🐕' },
+                { id: 'solana', symbol: 'SOL', icon: '◎' },
+                { id: 'cardano', symbol: 'ADA', icon: '♦' }
+            ];
+
+            const grid = document.getElementById('cryptoGrid');
+            grid.innerHTML = coins.map(coin => {
+                const info = data[coin.id];
+                if (!info) return '';
+                const price = info.usd;
+                const change = info.usd_24h_change;
+                const changeClass = change >= 0 ? 'up' : 'down';
+                const changeIcon = change >= 0 ? '▲' : '▼';
+
+                // Flash effect
+                const prev = prevPrices[coin.id];
+                const flash = prev && prev !== price ? (price > prev ? 'rgba(0,230,118,0.1)' : 'rgba(255,82,82,0.1)') : 'transparent';
+                prevPrices[coin.id] = price;
+
+                return `
+                    <div class="coin" style="background:${flash}">
+                        <div>
+                            <span style="font-size:1.2rem;margin-right:6px">${coin.icon}</span>
+                            <span class="coin-name">${coin.id.charAt(0).toUpperCase() + coin.id.slice(1)}</span>
+                            <span class="coin-symbol">${coin.symbol}</span>
+                        </div>
+                        <div style="text-align:right">
+                            <div class="coin-price">$${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div class="coin-change ${changeClass}">${changeIcon} ${Math.abs(change || 0).toFixed(2)}%</div>
+                        </div>
+                    </div>`;
+            }).join('');
+            addFeed('💰 Crypto prices updated');
+        }
+
+        // ===================== WEATHER =====================
+        function renderWeather(data) {
+            const weatherIcons = { 0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️', 45: '🌫️', 48: '🌫️', 51: '🌧️', 53: '🌧️', 55: '🌧️', 61: '🌧️', 63: '🌧️', 65: '🌧️', 71: '🌨️', 73: '🌨️', 75: '🌨️', 80: '🌦️', 81: '🌦️', 82: '🌦️', 95: '⛈️', 96: '⛈️', 99: '⛈️' };
+            const body = document.getElementById('weatherBody');
+            body.innerHTML = data.map(city => `
+                <div class="city-row">
+                    <div>
+                        <div class="city-name">${city.city}</div>
+                        <div class="city-detail">💨 ${city.windSpeed} km/h · 💧 ${city.humidity}%</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span class="weather-icon">${weatherIcons[city.weatherCode] || '🌡️'}</span>
+                        <span class="city-temp">${city.temperature}°C</span>
+                    </div>
+                </div>
+            `).join('');
+            addFeed('🌤️ Weather data updated');
+        }
+
+        // ===================== WIKIPEDIA =====================
+        function renderWiki(data) {
+            const body = document.getElementById('wikiBody');
+            const items = Array.isArray(data) ? data : [];
+            body.innerHTML = items.slice(0, 8).map(item => `
+                <div class="wiki-item">
+                    <div class="wiki-title">${item.title}</div>
+                    <div class="wiki-meta">by ${item.user} · ${new Date(item.timestamp).toLocaleTimeString()}</div>
+                </div>
+            `).join('') || '<div style="text-align:center;color:#555">No recent edits</div>';
+            addFeed('📚 Wikipedia edits updated');
+        }
+
+        // ===================== CLOCKS =====================
+        function renderClocks(data) {
+            const body = document.getElementById('clockBody');
+            body.innerHTML = data.map(clock => {
+                const dt = new Date(clock.datetime);
+                const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const zoneShort = clock.timezone.split('/').pop().replace('_', ' ');
+                return `
+                    <div class="clock-row">
+                        <div>
+                            <div class="clock-zone">${zoneShort}</div>
+                            <div class="clock-abbr">${clock.abbreviation}</div>
+                        </div>
+                        <div class="clock-time">${timeStr}</div>
+                    </div>`;
+            }).join('');
+            addFeed('🕐 World clocks updated');
+        }
+
+        // ===================== FEED =====================
+        function addFeed(text) {
+            const feed = document.getElementById('feed');
+            const entry = document.createElement('div');
+            entry.className = 'feed-entry';
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+            feed.insertBefore(entry, feed.firstChild);
+            if (feed.children.length > 50) feed.removeChild(feed.lastChild);
+        }
+    </script>
+</body>
+
+</html>

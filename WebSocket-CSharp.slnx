@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="Capstone-LiveDashboard/Capstone-LiveDashboard.csproj" />
+  <Project Path="Chapter02-FirstConnection/Chapter02-FirstConnection.csproj" />
+  <Project Path="Chapter03-Messaging/Chapter03-Messaging.csproj" />
+  <Project Path="Chapter04-Broadcasting/Chapter04-Broadcasting.csproj" />
+  <Project Path="Chapter05-HeartbeatReconnection/Chapter05-HeartbeatReconnection.csproj" />
+  <Project Path="Chapter06-AuthSecurity/Chapter06-AuthSecurity.csproj" />
+  <Project Path="Chapter07-SignalR/Chapter07-SignalR.csproj" />
+  <Project Path="Chapter08-Scaling/Chapter08-Scaling.csproj" />
+</Solution>

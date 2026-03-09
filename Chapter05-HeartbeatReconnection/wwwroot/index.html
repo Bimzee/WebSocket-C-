@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 05 — Heartbeat & Reconnection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 1.5rem
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.8rem;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d, #00e676);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.3rem
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 1.5rem
+        }
+
+        /* Health Dashboard */
+        .health-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem
+        }
+
+        .health-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.2rem;
+            text-align: center;
+            transition: all 0.3s
+        }
+
+        .health-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0.3rem 0
+        }
+
+        .health-card .label {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px
+        }
+
+        .health-card.connected .value {
+            color: #00e676
+        }
+
+        .health-card.reconnecting .value {
+            color: #ffd93d
+        }
+
+        .health-card.dead .value {
+            color: #ff5252
+        }
+
+        /* Connection State Machine */
+        .state-machine {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem
+        }
+
+        .state-machine h3 {
+            color: #00d2ff;
+            margin-bottom: 0.8rem;
+            font-size: 0.9rem
+        }
+
+        .states {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap
+        }
+
+        .state {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 2px solid transparent;
+            transition: all 0.3s
+        }
+
+        .state.active {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.3)
+        }
+
+        .state-connected {
+            background: rgba(0, 230, 118, 0.2);
+            color: #00e676
+        }
+
+        .state-connected.active {
+            border-color: #00e676;
+            box-shadow: 0 0 15px rgba(0, 230, 118, 0.3)
+        }
+
+        .state-disconnected {
+            background: rgba(255, 82, 82, 0.2);
+            color: #ff5252
+        }
+
+        .state-disconnected.active {
+            border-color: #ff5252;
+            box-shadow: 0 0 15px rgba(255, 82, 82, 0.3)
+        }
+
+        .state-reconnecting {
+            background: rgba(255, 217, 61, 0.2);
+            color: #ffd93d
+        }
+
+        .state-reconnecting.active {
+            border-color: #ffd93d;
+            box-shadow: 0 0 15px rgba(255, 217, 61, 0.3)
+        }
+
+        .state-arrow {
+            color: #555;
+            font-size: 1.2rem
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 1rem;
+            flex-wrap: wrap
+        }
+
+        .ctrl-btn {
+            padding: 8px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: transparent;
+            color: #ccc;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s
+        }
+
+        .ctrl-btn:hover {
+            background: rgba(255, 255, 255, 0.1)
+        }
+
+        .ctrl-btn.danger {
+            border-color: rgba(255, 82, 82, 0.3);
+            color: #ff5252
+        }
+
+        .ctrl-btn.danger:hover {
+            background: rgba(255, 82, 82, 0.1)
+        }
+
+        .ctrl-btn.success {
+            border-color: rgba(0, 230, 118, 0.3);
+            color: #00e676
+        }
+
+        /* Log */
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            max-height: 400px;
+            overflow-y: auto
+        }
+
+        .log-entry {
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-bottom: 3px;
+            font-size: 0.8rem;
+            font-family: 'Cascadia Code', monospace;
+            animation: fadeIn 0.3s
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0)
+            }
+        }
+
+        .log-entry.ping {
+            color: #ffd93d;
+            background: rgba(255, 217, 61, 0.05)
+        }
+
+        .log-entry.pong {
+            color: #00e676;
+            background: rgba(0, 230, 118, 0.05)
+        }
+
+        .log-entry.connect {
+            color: #00d2ff;
+            background: rgba(0, 210, 255, 0.05)
+        }
+
+        .log-entry.disconnect {
+            color: #ff5252;
+            background: rgba(255, 82, 82, 0.05)
+        }
+
+        .log-entry.reconnect {
+            color: #ffd93d;
+            background: rgba(255, 217, 61, 0.05)
+        }
+
+        .log-entry.info {
+            color: #888
+        }
+
+        .log-entry.chat {
+            color: #b388ff;
+            background: rgba(123, 47, 247, 0.05)
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>💓 Chapter 05 — Heartbeat & Reconnection</h1>
+        <p class="subtitle">Keep connections alive and recover from failures</p>
+
+        <!-- Health Dashboard -->
+        <div class="health-grid">
+            <div class="health-card connected" id="statusCard">
+                <div class="label">Status</div>
+                <div class="value" id="connStatus">—</div>
+            </div>
+            <div class="health-card">
+                <div class="label">Reconnections</div>
+                <div class="value" id="reconnCount">0</div>
+            </div>
+            <div class="health-card">
+                <div class="label">Ping/Pong RTT</div>
+                <div class="value" id="rtt">—</div>
+            </div>
+        </div>
+
+        <!-- State Machine Visualization -->
+        <div class="state-machine">
+            <h3>🔄 Connection State Machine</h3>
+            <div class="states">
+                <span class="state state-connected" id="stateConnected">CONNECTED</span>
+                <span class="state-arrow">→</span>
+                <span class="state state-disconnected" id="stateDisconnected">DISCONNECTED</span>
+                <span class="state-arrow">→</span>
+                <span class="state state-reconnecting" id="stateReconnecting">RECONNECTING</span>
+                <span class="state-arrow">→</span>
+                <span class="state state-connected">CONNECTED ✓</span>
+            </div>
+            <p style="margin-top:8px;font-size:0.75rem;color:#666" id="backoffInfo">Backoff: — | Next retry: —</p>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button class="ctrl-btn success" onclick="manualConnect()">🔌 Connect</button>
+            <button class="ctrl-btn danger" onclick="manualDisconnect()">🔴 Disconnect</button>
+            <button class="ctrl-btn" onclick="simulateNetworkDrop()">💥 Simulate Drop</button>
+            <button class="ctrl-btn" onclick="sendChat()">💬 Send Chat</button>
+            <button class="ctrl-btn" onclick="requestStatus()">📊 Server Status</button>
+            <button class="ctrl-btn" onclick="clearLog()">🗑 Clear</button>
+        </div>
+
+        <!-- Event Log -->
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // Auto-Reconnecting WebSocket Client with Exponential Backoff
+        // =====================================================================
+
+        let ws = null;
+        let reconnectAttempts = 0;
+        let totalReconnections = 0;
+        let maxReconnectAttempts = 10;
+        let baseDelay = 1000;          // Start at 1 second
+        let maxDelay = 30000;          // Max 30 seconds
+        let reconnectTimer = null;
+        let shouldReconnect = true;    // Flag to control reconnection
+        let lastPingTime = null;       // For RTT measurement
+
+        window.addEventListener('load', connect);
+
+        function connect() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return; // Already connected or connecting
+            }
+
+            updateState('reconnecting');
+            log('📡 Connecting to server...', 'connect');
+
+            ws = new WebSocket('ws://localhost:5000/ws');
+
+            ws.onopen = () => {
+                log('🟢 Connected!', 'connect');
+                reconnectAttempts = 0; // Reset backoff on successful connection
+                updateState('connected');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleMessage(data);
+            };
+
+            ws.onclose = (event) => {
+                log(`🔴 Disconnected (code: ${event.code}, reason: ${event.reason || 'N/A'})`, 'disconnect');
+                updateState('disconnected');
+
+                if (shouldReconnect && event.code !== 1000) {
+                    scheduleReconnect();
+                }
+            };
+
+            ws.onerror = () => {
+                log('❌ Connection error', 'disconnect');
+            };
+        }
+
+        // =================================================================
+        // Exponential Backoff Reconnection
+        // =================================================================
+        function scheduleReconnect() {
+            if (reconnectAttempts >= maxReconnectAttempts) {
+                log(`❌ Max reconnect attempts (${maxReconnectAttempts}) reached. Giving up.`, 'disconnect');
+                return;
+            }
+
+            // Calculate delay with exponential backoff + jitter
+            // Formula: min(baseDelay * 2^attempt + random jitter, maxDelay)
+            const exponentialDelay = baseDelay * Math.pow(2, reconnectAttempts);
+            const jitter = Math.random() * 1000; // 0-1 second jitter
+            const delay = Math.min(exponentialDelay + jitter, maxDelay);
+
+            reconnectAttempts++;
+            totalReconnections++;
+            document.getElementById('reconnCount').textContent = totalReconnections;
+
+            log(`🔄 Reconnecting in ${(delay / 1000).toFixed(1)}s (attempt ${reconnectAttempts}/${maxReconnectAttempts})`, 'reconnect');
+            document.getElementById('backoffInfo').textContent =
+                `Backoff: ${(delay / 1000).toFixed(1)}s | Attempt: ${reconnectAttempts}/${maxReconnectAttempts}`;
+
+            updateState('reconnecting');
+
+            reconnectTimer = setTimeout(() => {
+                log('🔄 Attempting reconnection...', 'reconnect');
+                connect();
+            }, delay);
+        }
+
+        // =================================================================
+        // Message Handling
+        // =================================================================
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'ping':
+                    // Server is pinging us — respond with pong immediately!
+                    lastPingTime = Date.now();
+                    log(`🏓 Ping received (missed: ${data.missedPings})`, 'ping');
+
+                    // Send pong response
+                    ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
+
+                    const rtt = Date.now() - lastPingTime;
+                    document.getElementById('rtt').textContent = `${rtt}ms`;
+                    log(`🏓 Pong sent (RTT: ${rtt}ms)`, 'pong');
+                    break;
+
+                case 'system':
+                    log(`ℹ️ ${data.message}`, 'info');
+                    break;
+
+                case 'chat':
+                    log(`💬 ${data.from}: ${data.text}`, 'chat');
+                    break;
+
+                case 'status':
+                    log(`📊 Server: ${data.connections} connection(s), uptime: ${data.serverUptime}s`, 'info');
+                    if (data.health) {
+                        data.health.forEach(h => {
+                            log(`   └─ ${h.id}: alive=${h.isAlive}, missed=${h.missedPings}`, 'info');
+                        });
+                    }
+                    break;
+
+                case 'error':
+                    log(`❌ ${data.message}`, 'disconnect');
+                    break;
+            }
+        }
+
+        // =================================================================
+        // Controls
+        // =================================================================
+        function manualConnect() {
+            shouldReconnect = true;
+            reconnectAttempts = 0;
+            connect();
+        }
+
+        function manualDisconnect() {
+            shouldReconnect = false;
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            if (ws) ws.close(1000, 'User disconnected');
+        }
+
+        function simulateNetworkDrop() {
+            // Close WebSocket WITHOUT a proper close frame (simulates network failure)
+            shouldReconnect = true;
+            if (ws) {
+                log('💥 Simulating network drop...', 'disconnect');
+                ws.close(4000, 'Simulated network drop');
+            }
+        }
+
+        function sendChat() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const text = `Hello at ${new Date().toLocaleTimeString()}`;
+                ws.send(JSON.stringify({ type: 'chat', text }));
+                log(`📤 Sent: ${text}`, 'chat');
+            }
+        }
+
+        function requestStatus() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'status' }));
+            }
+        }
+
+        // =================================================================
+        // UI Helpers
+        // =================================================================
+        function updateState(state) {
+            ['stateConnected', 'stateDisconnected', 'stateReconnecting'].forEach(id =>
+                document.getElementById(id).classList.remove('active'));
+
+            const card = document.getElementById('statusCard');
+            card.className = 'health-card';
+
+            switch (state) {
+                case 'connected':
+                    document.getElementById('stateConnected').classList.add('active');
+                    document.getElementById('connStatus').textContent = '●';
+                    card.classList.add('connected');
+                    document.getElementById('connStatus').style.color = '#00e676';
+                    break;
+                case 'disconnected':
+                    document.getElementById('stateDisconnected').classList.add('active');
+                    document.getElementById('connStatus').textContent = '●';
+                    card.classList.add('dead');
+                    document.getElementById('connStatus').style.color = '#ff5252';
+                    break;
+                case 'reconnecting':
+                    document.getElementById('stateReconnecting').classList.add('active');
+                    document.getElementById('connStatus').textContent = '◌';
+                    card.classList.add('reconnecting');
+                    document.getElementById('connStatus').style.color = '#ffd93d';
+                    break;
+            }
+        }
+
+        function log(msg, type = 'info') {
+            const div = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            div.appendChild(entry);
+            div.scrollTop = div.scrollHeight;
+        }
+
+        function clearLog() { document.getElementById('log').innerHTML = ''; }
+    </script>
+</body>
+
+</html>

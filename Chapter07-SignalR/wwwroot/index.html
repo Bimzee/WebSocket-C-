@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 07 — SignalR</title>
+    <!-- SignalR JavaScript Client Library (from CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 1.5rem
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 0 auto
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.8rem;
+            background: linear-gradient(90deg, #68d391, #4fd1c5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.3rem
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 1.5rem
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff4444
+        }
+
+        .dot.on {
+            background: #00e676;
+            animation: pulse 2s infinite
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 5px rgba(0, 230, 118, 0.3)
+            }
+
+            50% {
+                box-shadow: 0 0 15px rgba(0, 230, 118, 0.6)
+            }
+        }
+
+        /* Comparison Banner */
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem
+        }
+
+        .compare-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem
+        }
+
+        .compare-card h3 {
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px
+        }
+
+        .compare-card.raw h3 {
+            color: #ff6b6b
+        }
+
+        .compare-card.signalr h3 {
+            color: #68d391
+        }
+
+        .compare-card pre {
+            font-size: 0.7rem;
+            color: #888;
+            line-height: 1.5;
+            overflow-x: auto
+        }
+
+        /* Chat area */
+        .chat {
+            display: flex;
+            gap: 1rem
+        }
+
+        .sidebar {
+            width: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem
+        }
+
+        .panel h3 {
+            font-size: 0.8rem;
+            color: #4fd1c5;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px
+        }
+
+        .panel input {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #e0e0e0;
+            font-size: 0.85rem;
+            outline: none;
+            margin-bottom: 6px
+        }
+
+        .panel button {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            background: transparent;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+            transition: all 0.2s
+        }
+
+        .panel button:hover {
+            background: rgba(255, 255, 255, 0.1)
+        }
+
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            min-height: 350px;
+            max-height: 450px;
+            margin-bottom: 1rem
+        }
+
+        .msg {
+            padding: 6px 10px;
+            margin-bottom: 6px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            animation: fadeIn 0.3s
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        .msg.system {
+            color: #888;
+            font-style: italic;
+            text-align: center;
+            font-size: 0.8rem
+        }
+
+        .msg.chat {
+            background: rgba(104, 211, 145, 0.1);
+            border-left: 3px solid #68d391
+        }
+
+        .msg.group {
+            background: rgba(79, 209, 197, 0.1);
+            border-left: 3px solid #4fd1c5
+        }
+
+        .msg.dm {
+            background: rgba(246, 173, 85, 0.1);
+            border-left: 3px solid #f6ad55
+        }
+
+        .msg .sender {
+            font-weight: 600;
+            color: #68d391
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px
+        }
+
+        .input-row input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #e0e0e0;
+            outline: none
+        }
+
+        .input-row button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #68d391, #4fd1c5);
+            color: #000;
+            font-weight: 600;
+            cursor: pointer
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔮 Chapter 07 — SignalR</h1>
+        <p class="subtitle">The .NET way to do real-time communication</p>
+        <div class="status-bar">
+            <div class="dot" id="dot"></div>
+            <span id="statusText">Connecting...</span>
+            <span style="color:#68d391;font-weight:600" id="myName"></span>
+        </div>
+
+        <!-- Code Comparison -->
+        <div class="comparison">
+            <div class="compare-card raw">
+                <h3>❌ Raw WebSocket (Ch 2-6)</h3>
+                <pre>// Manual connection management
+var buffer = new byte[4096];
+var result = await ws.ReceiveAsync(...);
+var json = Encoding.UTF8.GetString(...);
+var doc = JsonDocument.Parse(json);
+// Manual routing, groups, etc.</pre>
+            </div>
+            <div class="compare-card signalr">
+                <h3>✅ SignalR (This Chapter)</h3>
+                <pre>// Just define methods on the Hub!
+public async Task SendMessage(string msg)
+{
+    await Clients.All.SendAsync(
+        "ReceiveMessage", msg);
+}
+// Groups, reconnect: automatic!</pre>
+            </div>
+        </div>
+
+        <div class="chat">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="panel">
+                    <h3>👤 Name</h3>
+                    <input type="text" id="nameInput" placeholder="Your name...">
+                    <button onclick="setName()">Set Name</button>
+                </div>
+                <div class="panel">
+                    <h3>🏠 Group</h3>
+                    <input type="text" id="groupInput" placeholder="Group name...">
+                    <button onclick="joinGroup()">Join</button>
+                    <button onclick="leaveGroup()">Leave</button>
+                </div>
+                <div class="panel">
+                    <h3>📊 Info</h3>
+                    <button onclick="showTransport()">Show Transport</button>
+                </div>
+            </div>
+
+            <!-- Main Chat -->
+            <div class="main-chat">
+                <div class="messages" id="messages"></div>
+                <div class="input-row">
+                    <input type="text" id="chatInput" placeholder="Type a message..."
+                        onkeypress="if(event.key==='Enter')sendMessage()">
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // SignalR Client — Compare with raw WebSocket from previous chapters!
+        // =====================================================================
+        // Instead of: new WebSocket('ws://...')
+        // We use:    new signalR.HubConnectionBuilder().withUrl('/chatHub').build()
+        //
+        // Instead of: ws.send(JSON.stringify({type: 'chat', text: '...'}))
+        // We use:     connection.invoke('SendMessage', '...')
+        //
+        // Instead of: ws.onmessage = (event) => JSON.parse(event.data)
+        // We use:     connection.on('ReceiveMessage', (data) => ...)
+        // =====================================================================
+
+        let currentGroup = '';
+
+        // Build the SignalR connection
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/chatHub")               // The hub URL
+            .withAutomaticReconnect([0, 2000, 5000, 10000, 30000]) // Built-in reconnect!
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+
+        // ----- Register event handlers (like ws.onmessage but TYPED!) -----
+
+        connection.on("ReceiveMessage", (data) => {
+            addMsg('chat', `<span class="sender">${data.from}</span>: ${data.text}`);
+        });
+
+        connection.on("ReceiveGroupMessage", (data) => {
+            addMsg('group', `<span class="sender">${data.from}</span> [${data.group}]: ${data.text}`);
+        });
+
+        connection.on("ReceiveDirectMessage", (data) => {
+            addMsg('dm', `<span class="sender">${data.from}</span> → ${data.to}: ${data.text}`);
+        });
+
+        connection.on("SystemMessage", (data) => {
+            if (data.event === 'welcome') {
+                document.getElementById('myName').textContent = `(${data.name})`;
+            }
+            addMsg('system', data.message);
+        });
+
+        // ----- Lifecycle events -----
+        connection.onreconnecting(() => {
+            document.getElementById('dot').classList.remove('on');
+            document.getElementById('statusText').textContent = 'Reconnecting...';
+            addMsg('system', '🔄 Reconnecting...');
+        });
+
+        connection.onreconnected(() => {
+            document.getElementById('dot').classList.add('on');
+            document.getElementById('statusText').textContent = 'Reconnected';
+            addMsg('system', '🟢 Reconnected!');
+        });
+
+        connection.onclose(() => {
+            document.getElementById('dot').classList.remove('on');
+            document.getElementById('statusText').textContent = 'Disconnected';
+            addMsg('system', '🔴 Disconnected');
+        });
+
+        // ----- Start the connection -----
+        connection.start()
+            .then(() => {
+                document.getElementById('dot').classList.add('on');
+                document.getElementById('statusText').textContent = 'Connected';
+            })
+            .catch(err => addMsg('system', '❌ ' + err.toString()));
+
+        // ----- Actions -----
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            if (currentGroup) {
+                // Send to group via hub method
+                connection.invoke('SendGroupMessage', currentGroup, text).catch(console.error);
+            } else {
+                // Send to everyone via hub method
+                connection.invoke('SendMessage', text).catch(console.error);
+            }
+            input.value = '';
+        }
+
+        function setName() {
+            const name = document.getElementById('nameInput').value.trim();
+            if (name) connection.invoke('SetName', name).catch(console.error);
+        }
+
+        function joinGroup() {
+            const group = document.getElementById('groupInput').value.trim();
+            if (group) {
+                currentGroup = group;
+                connection.invoke('JoinGroup', group).catch(console.error);
+                document.getElementById('chatInput').placeholder = `Message to '${group}'...`;
+            }
+        }
+
+        function leaveGroup() {
+            if (currentGroup) {
+                connection.invoke('LeaveGroup', currentGroup).catch(console.error);
+                currentGroup = '';
+                document.getElementById('chatInput').placeholder = 'Type a message...';
+            }
+        }
+
+        function showTransport() {
+            const transport = connection.connection?.transport?.name || 'Unknown';
+            addMsg('system', `📊 Transport: ${transport} | State: ${connection.state}`);
+        }
+
+        function addMsg(type, html) {
+            const div = document.getElementById('messages');
+            const el = document.createElement('div');
+            el.className = `msg ${type}`;
+            el.innerHTML = html;
+            div.appendChild(el);
+            div.scrollTop = div.scrollHeight;
+        }
+    </script>
+</body>
+
+</html>

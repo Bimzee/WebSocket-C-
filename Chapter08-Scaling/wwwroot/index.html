@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 08 — Scaling with Redis</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 1.5rem
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.8rem;
+            background: linear-gradient(90deg, #f56565, #ed8936, #ecc94b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.3rem
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 1.5rem
+        }
+
+        /* Architecture Diagram */
+        .arch {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+            text-align: center
+        }
+
+        .arch pre {
+            font-size: 0.75rem;
+            color: #aaa;
+            line-height: 1.6;
+            text-align: left;
+            display: inline-block
+        }
+
+        /* Server Cards */
+        .server-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem
+        }
+
+        .server-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s
+        }
+
+        .server-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(255, 255, 255, 0.3)
+        }
+
+        .server-card.active {
+            border-color: #ecc94b;
+            background: rgba(236, 201, 75, 0.1)
+        }
+
+        .server-card .port {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #ecc94b
+        }
+
+        .server-card .label {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px
+        }
+
+        .server-card .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff4444;
+            margin-right: 4px
+        }
+
+        .server-card .status-dot.on {
+            background: #00e676
+        }
+
+        /* Chat */
+        .messages {
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            min-height: 250px;
+            max-height: 400px;
+            margin-bottom: 1rem
+        }
+
+        .msg {
+            padding: 6px 10px;
+            margin-bottom: 6px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            animation: fadeIn 0.3s
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        .msg.system {
+            color: #888;
+            font-style: italic;
+            text-align: center;
+            font-size: 0.8rem
+        }
+
+        .msg.chat {
+            background: rgba(236, 201, 75, 0.1);
+            border-left: 3px solid #ecc94b
+        }
+
+        .msg .server-tag {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 8px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            margin-left: 4px
+        }
+
+        .msg .server-tag.port-5000 {
+            background: rgba(245, 101, 101, 0.2);
+            color: #f56565
+        }
+
+        .msg .server-tag.port-5001 {
+            background: rgba(236, 201, 75, 0.2);
+            color: #ecc94b
+        }
+
+        .msg .server-tag.port-5002 {
+            background: rgba(72, 187, 120, 0.2);
+            color: #48bb78
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px
+        }
+
+        .input-row input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #e0e0e0;
+            outline: none
+        }
+
+        .input-row button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #f56565, #ecc94b);
+            color: #000;
+            font-weight: 600;
+            cursor: pointer
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>📈 Chapter 08 — Scaling with Redis</h1>
+        <p class="subtitle">Cross-server messaging via Redis backplane</p>
+
+        <!-- Architecture -->
+        <div class="arch">
+            <pre>
+     ┌──────────┐     ┌──────────┐     ┌──────────┐
+     │ Server 1 │     │ Server 2 │     │ Server 3 │
+     │ :5000    │     │ :5001    │     │ :5002    │
+     └────┬─────┘     └────┬─────┘     └────┬─────┘
+          │                │                │
+          └───────┬────────┴────────┬───────┘
+                  │   Redis Pub/Sub  │
+                  │   (Backplane)    │
+                  └──────────────────┘
+            </pre>
+        </div>
+
+        <!-- Server Selection -->
+        <div class="server-grid">
+            <div class="server-card active" id="card-5000" onclick="connectTo(5000)">
+                <div class="label">Server 1</div>
+                <div class="port">:5000</div>
+                <div><span class="status-dot" id="dot-5000"></span><span id="status-5000">Click to connect</span></div>
+            </div>
+            <div class="server-card" id="card-5001" onclick="connectTo(5001)">
+                <div class="label">Server 2</div>
+                <div class="port">:5001</div>
+                <div><span class="status-dot" id="dot-5001"></span><span id="status-5001">Click to connect</span></div>
+            </div>
+            <div class="server-card" id="card-5002" onclick="connectTo(5002)">
+                <div class="label">Server 3</div>
+                <div class="port">:5002</div>
+                <div><span class="status-dot" id="dot-5002"></span><span id="status-5002">Click to connect</span></div>
+            </div>
+        </div>
+
+        <div class="messages" id="messages"></div>
+
+        <div class="input-row">
+            <input type="text" id="chatInput"
+                placeholder="Type a message (will be delivered across ALL servers via Redis)..."
+                onkeypress="if(event.key==='Enter')sendMessage()">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        let connection = null;
+        let currentPort = null;
+
+        function connectTo(port) {
+            // Disconnect from previous
+            if (connection) {
+                connection.stop();
+                if (currentPort) {
+                    document.getElementById(`dot-${currentPort}`).classList.remove('on');
+                    document.getElementById(`card-${currentPort}`).classList.remove('active');
+                }
+            }
+
+            currentPort = port;
+            document.getElementById(`card-${port}`).classList.add('active');
+            addMsg('system', `📡 Connecting to server :${port}...`);
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl(`http://localhost:${port}/scalingHub`)
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("ServerInfo", (data) => {
+                addMsg('system', `🟢 ${data.message} (PID: ${data.processId})`);
+            });
+
+            connection.on("SystemMessage", (data) => {
+                const tag = data.serverPort ? `<span class="server-tag port-${data.serverPort}">:${data.serverPort}</span>` : '';
+                addMsg('system', `${data.message} ${tag}`);
+            });
+
+            connection.on("ReceiveMessage", (data) => {
+                const tag = `<span class="server-tag port-${data.serverPort}">via :${data.serverPort}</span>`;
+                addMsg('chat', `${data.text} ${tag}`);
+            });
+
+            connection.start()
+                .then(() => {
+                    document.getElementById(`dot-${port}`).classList.add('on');
+                    document.getElementById(`status-${port}`).textContent = 'Connected';
+                })
+                .catch(err => addMsg('system', `❌ Failed to connect to :${port}: ${err}`));
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (text && connection) {
+                connection.invoke('SendMessage', text).catch(console.error);
+                input.value = '';
+            }
+        }
+
+        function addMsg(type, html) {
+            const div = document.getElementById('messages');
+            const el = document.createElement('div');
+            el.className = `msg ${type}`;
+            const time = new Date().toLocaleTimeString();
+            el.innerHTML = `[${time}] ${html}`;
+            div.appendChild(el);
+            div.scrollTop = div.scrollHeight;
+        }
+
+        // Auto-connect to first server
+        connectTo(5000);
+    </script>
+</body>
+
+</html>
